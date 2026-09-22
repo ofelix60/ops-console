@@ -1,0 +1,14 @@
+# Local n8n. Data lives in the named volume; nothing here is exposed publicly.
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n
+    ports:
+      - "127.0.0.1:5678:5678"   # loopback only
+    environment:
+      - N8N_SECURE_COOKIE=false
+      - GENERIC_TIMEZONE=America/Los_Angeles
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+volumes:
+  n8n_data:
