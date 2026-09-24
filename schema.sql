@@ -11,7 +11,7 @@ create table if not exists ops_checks (
   details      jsonb,
   acknowledged boolean     not null default false,
   ack_by       text,
-  ack_at       timestamptz
+  ack_at       timestamptz,
 
   constraint ack_consistency_check check (
     (acknowledged = false and ack_by is null and ack_at is null)
