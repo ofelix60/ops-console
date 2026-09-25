@@ -1,0 +1,8 @@
+{
+  "host": "cajita",
+  "database": "cajita-database-db",
+  "status": "fail",
+  "duration_ms": 8421,
+  "size_bytes": 1048576,
+  "message": "pg_dump: error: connection to server failed"
+}
