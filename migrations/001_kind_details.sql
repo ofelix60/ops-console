@@ -5,8 +5,10 @@
 alter table ops_checks add column kind    text;
 alter table ops_checks add column details jsonb;
 
--- 2. Backfill kind on rows that already exist (existing rows are health checks).
-update ops_checks set kind = 'health' where kind is null;
+-- 2. Backfill kind on existing rows, matching what was run on Neon:
+--    anything targeting a backup is a backup check, everything else is health.
+update ops_checks
+set kind = case when target like '%backup%' then 'backup' else 'health' end;
 
 -- 3. Now every row has a value, so require it going forward.
 alter table ops_checks alter column kind set not null;
