@@ -22,3 +22,6 @@ create table if not exists ops_checks (
 create index if not exists ops_checks_checked_at_idx on ops_checks (checked_at desc);
 create index if not exists ops_checks_open_fail_idx  on ops_checks (checked_at desc)
   where status = 'fail' and acknowledged = false;
+create index if not exists ops_checks_target_checked_at_idx
+  on ops_checks (target, checked_at desc);
+
