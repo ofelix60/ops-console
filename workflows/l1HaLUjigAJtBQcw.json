@@ -1,0 +1,69 @@
+{
+  "updatedAt": "2026-09-29T21:32:34.532Z",
+  "createdAt": "2026-09-29T21:31:30.659Z",
+  "id": "l1HaLUjigAJtBQcw",
+  "name": "backup-watchdog",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "4757696b-caeb-40ff-b42a-d96f7daef044",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "connections": {},
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "efabfade-7157-4fc0-bc10-10ff35058f23",
+  "activeVersionId": null,
+  "versionCounter": 2,
+  "triggerCount": 0,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-09-29T21:31:30.662Z",
+      "createdAt": "2026-09-29T21:31:30.662Z",
+      "role": "workflow:owner",
+      "workflowId": "l1HaLUjigAJtBQcw",
+      "projectId": "e6Cq01nKjNTKgkLa",
+      "project": {
+        "updatedAt": "2026-09-22T22:12:40.459Z",
+        "createdAt": "2026-09-22T22:08:55.677Z",
+        "id": "e6Cq01nKjNTKgkLa",
+        "name": "Oscar Felix <REDACTED_EMAIL>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "56fc6be2-5b6b-415a-921f-407cd7f461dd"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
