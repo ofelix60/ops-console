@@ -1,20 +1,38 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+docker compose exec n8n rm -rf /tmp/wf/
 docker compose exec n8n n8n export:workflow --backup --output=/tmp/wf/
-docker compose cp n8n:/tmp/wf/. workflows/
+docker compose cp n8n:/tmp/wf/. "$tmp"
 
 # Redact Slack webhook URL
-sed -E -i '' "s|https://hooks\.slack\.com/services/[A-Za-z0-9/]+|SLACK_WEBHOOK_URL_REDACTED|g" workflows/*.json
+sed -i.bak -E "s|https://hooks\.slack\.com/services/[A-Za-z0-9/]+|SLACK_WEBHOOK_URL_REDACTED|g" "$tmp"/*.json
 
-# Redact name and email
-sed -E -i '' "s|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]+|REDACTED_EMAIL|g" workflows/*.json
-sed -i '' "s|Oscar Felix|REDACTED|g" workflows/*.json
+# Redact email
+sed -i.bak -E "s|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]+|REDACTED_EMAIL|g" "$tmp"/*.json
 
-if grep -r 'hooks.slack.com/services' workflows; then
-  echo "✻ SLACK WEBHOOK URL STILL IN workflows/ - NOT safe to commit" >&2
+# Drop the .bak backups before the guards — they hold pre-redaction text
+rm "$tmp"/*.bak
+
+# Guards: refuse to publish if any secret survived
+if grep -rq 'hooks.slack.com/services' "$tmp"; then
+  echo "✻ SLACK WEBHOOK URL STILL IN staging - NOT safe to commit" >&2
+  exit 1
+fi
+if [ -n "${N8N_TOKEN:-}" ] && grep -rqF "$N8N_TOKEN" "$tmp"; then
+  echo "✻ N8N_TOKEN STILL IN staging - NOT safe to commit" >&2
+  exit 1
+fi
+if grep -rqE '@[A-Za-z0-9.-]+\.[A-Za-z]+' "$tmp"; then
+  echo "✻ EMAIL STILL IN STAGING - NOT safe to commit" >&2
   exit 1
 fi
 
+# Only reached if both guards passed
+rm -rf workflows/*.json
+cp "$tmp"/*.json workflows/
 echo "✻ Workflows exported and scrubbed"
 
