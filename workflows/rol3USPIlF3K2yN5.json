@@ -1,0 +1,221 @@
+{
+  "updatedAt": "2026-09-28T17:22:58.452Z",
+  "createdAt": "2026-09-24T03:25:34.337Z",
+  "id": "rol3USPIlF3K2yN5",
+  "name": "backup-report",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ops_checks (kind, target, status, message, details)\nVALUES ('backup', 'backup:' || $1 || '/' || $2, $3, $4, $5::jsonb)\nRETURNING id, target, status, message;",
+        "options": {
+          "queryReplacement": "={{ [$json.body.host,\n    $json.body.database,\n    $json.body.status,\n    $json.body.message,\n    JSON.stringify($json.body)] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "e7c38385-b6da-4fca-8bfd-abda26caed83",
+      "name": "Insert backup report",
+      "alwaysOutputData": false,
+      "credentials": {
+        "postgres": {
+          "id": "SeWX7Lx5aLYhZNiP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "backup-report",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "0bcdfb3c-98aa-4efe-b56c-f1e727be2c4c",
+      "name": "Receive backup report",
+      "webhookId": "3a9b8100-1cd8-4898-9739-f0fe67637e7c",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DnsMbwWw6d0Id2nq",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"id\": $json.id } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        448,
+        0
+      ],
+      "id": "651203fd-22c7-4713-a8a8-c816282c7220",
+      "name": "Respond with id"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8324327b-1baf-490a-bce8-98476b9acd8b",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "fail",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        0
+      ],
+      "id": "48275c4a-42fa-428c-a73d-27f873760c63",
+      "name": "If backup failed"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "SLACK_WEBHOOK_URL_REDACTED",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: \"🚨 Backup FAILED — \" + $json.target + \"\\n\" + $json.message + \"\\nops_checks `#\" + String($json.id) + \"`\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        -112
+      ],
+      "id": "c03fa09a-7a04-4cac-ba5e-eea38e32ff5c",
+      "name": "Send Slack alert",
+      "retryOnFail": true
+    }
+  ],
+  "connections": {
+    "Insert backup report": {
+      "main": [
+        [
+          {
+            "node": "Respond with id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receive backup report": {
+      "main": [
+        [
+          {
+            "node": "Insert backup report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond with id": {
+      "main": [
+        [
+          {
+            "node": "If backup failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If backup failed": {
+      "main": [
+        [
+          {
+            "node": "Send Slack alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send Slack alert": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "9d9f25ef-26de-440f-81e7-8dd98c7a9ee3",
+  "activeVersionId": "9d9f25ef-26de-440f-81e7-8dd98c7a9ee3",
+  "versionCounter": 329,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-09-24T03:25:34.341Z",
+      "createdAt": "2026-09-24T03:25:34.341Z",
+      "role": "workflow:owner",
+      "workflowId": "rol3USPIlF3K2yN5",
+      "projectId": "e6Cq01nKjNTKgkLa",
+      "project": {
+        "updatedAt": "2026-09-22T22:12:40.459Z",
+        "createdAt": "2026-09-22T22:08:55.677Z",
+        "id": "e6Cq01nKjNTKgkLa",
+        "name": "REDACTED <REDACTED_EMAIL>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "56fc6be2-5b6b-415a-921f-407cd7f461dd"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": "Version 9d9f25ef",
+    "description": ""
+  }
+}

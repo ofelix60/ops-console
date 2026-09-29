@@ -1,0 +1,271 @@
+{
+  "updatedAt": "2026-09-29T19:36:32.130Z",
+  "createdAt": "2026-09-28T17:28:47.728Z",
+  "id": "CSDbFHcIDKj8ic8C",
+  "name": "health-check",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        -320
+      ],
+      "id": "84a893d4-5a41-4971-97dc-cc85db7172e6",
+      "name": "Trigger health check"
+    },
+    {
+      "parameters": {
+        "jsCode": "const targets = [\n    \"https://api.glosshall.com/health\", \n    \"https://livekit.glosshall.com\",\n    \"https://does-not-exist.invalid\"\n    // \"https://example.com\"\n]\n\nconst results = []\n\n// ok/fail rule: a site is \"ok\" only if it answered with a 2xx status AND within 3s. \nconst getFailureReason = (httpCode, elapsedTime, fastEnough) => {\n  const code = Number(httpCode)\n  if (code < 200 || code >= 300) {\n    return `HTTP: ${code}`;\n  }\n  if (!fastEnough) {\n    return `slow: ${elapsedTime}ms`\n  }\n  return null\n}\n\nfor (const url of targets) {\n  const start = Date.now();\n  try {\n    const response = await this.helpers.httpRequest({\n        url, \n        method:'GET', \n        returnFullResponse: true,\n        timeout: 10000\n    });\n    const elapsedMs = Date.now() - start \n    const respondedFastEnough = elapsedMs <= 3000\n    const msg = getFailureReason(response.statusCode, elapsedMs, respondedFastEnough)\n\n    results.push({\n        json: {\n            target: url, \n            http_code: response.statusCode, \n            response_ms: elapsedMs,\n            message: msg,\n            status: ((response.statusCode < 200 || response.statusCode > 299) && respondedFastEnough) ? 'ok' : 'fail'\n        }})\n  } catch (error) {    \n    results.push({\n        json: {\n            target: url, \n            http_code: null, \n            status: 'fail',\n            message: error.message,\n            response_ms: Date.now() - start,\n            error: error.code\n        }})\n  }\n}\n\nreturn results"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -320
+      ],
+      "id": "5f3f0da2-c2a9-4d68-ac0a-d72f9b01e17a",
+      "name": "Check sites"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with prev as (\n  select status\n  from ops_checks\n  where target = $1\n    and kind = 'health'\n  order by checked_at desc\n  limit 1\n)\ninsert into ops_checks (kind, target, status, message, details, response_ms, http_code)\nvalues ('health', $1, $2, $3, $4::jsonb, $5, $6)\nreturning id, target, status, message, http_code, response_ms, (select status from prev) as prev_status;",
+        "options": {
+          "queryReplacement": "={{ [$json.target,\n    $json.status,\n    $json.message || null,\n    JSON.stringify($json),\n    $json.response_ms,\n    $json.http_code] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        448,
+        -320
+      ],
+      "id": "593bb302-1205-4711-a3b6-e498140d23b5",
+      "name": "Insert health check report",
+      "credentials": {
+        "postgres": {
+          "id": "SeWX7Lx5aLYhZNiP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.status === 'fail' && $json.prev_status !== 'fail'}}",
+                    "rightValue": "='true'",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "3935d4d8-bf2c-4009-ac2e-dbb773400938"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "fail"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d3865f8c-a6ff-496a-801a-349addb138d2",
+                    "leftValue": "={{($json.prev_status === 'fail' && $json.status === 'ok')}}",
+                    "rightValue": "'true'",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "recovered"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        672,
+        -320
+      ],
+      "id": "dd63a317-fa66-4199-838f-2301092ffceb",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "SLACK_WEBHOOK_URL_REDACTED",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: \"🚨 Health check FAILED — \" + $json.target + \"\\n\" + \"HTTP \" + ($json.http_code ?? \"no response\") + \" · \" + ($json.response_ms ?? \"—\") + \"ms\" + \"\\nops_checks `#\" + String($json.id) + \"`\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        -416
+      ],
+      "id": "c326bfbe-ea84-40a4-8ece-39eec8056ca2",
+      "name": "Send failure alert"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "SLACK_WEBHOOK_URL_REDACTED",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: \"✅ Recovered — \" + $json.target + \"\\n\" + \"HTTP \" + ($json.http_code ?? \"no response\") + \" · \" + ($json.response_ms ?? \"—\") + \"ms\" + \"\\nops_checks `#\" + String($json.id) + \"`\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        -224
+      ],
+      "id": "cebd4ec5-9d72-4649-bc8b-9f2a7a9041d5",
+      "name": "Send recovery alert"
+    }
+  ],
+  "connections": {
+    "Trigger health check": {
+      "main": [
+        [
+          {
+            "node": "Check sites",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check sites": {
+      "main": [
+        [
+          {
+            "node": "Insert health check report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert health check report": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Send failure alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send recovery alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "staticData": {
+    "node:Trigger health check": {
+      "recurrenceRules": [
+        null
+      ],
+      "recurrenceRuleSignatures": [
+        null
+      ]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "83f727ae-1980-4345-818d-e2d0ef57f177",
+  "activeVersionId": "83f727ae-1980-4345-818d-e2d0ef57f177",
+  "versionCounter": 438,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-09-28T17:28:47.732Z",
+      "createdAt": "2026-09-28T17:28:47.732Z",
+      "role": "workflow:owner",
+      "workflowId": "CSDbFHcIDKj8ic8C",
+      "projectId": "e6Cq01nKjNTKgkLa",
+      "project": {
+        "updatedAt": "2026-09-22T22:12:40.459Z",
+        "createdAt": "2026-09-22T22:08:55.677Z",
+        "id": "e6Cq01nKjNTKgkLa",
+        "name": "REDACTED <REDACTED_EMAIL>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "56fc6be2-5b6b-415a-921f-407cd7f461dd"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": "Version 83f727ae",
+    "description": ""
+  }
+}
