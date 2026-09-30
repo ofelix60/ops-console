@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-29T21:32:34.532Z",
+  "updatedAt": "2026-09-30T18:30:22.237Z",
   "createdAt": "2026-09-29T21:31:30.659Z",
   "id": "l1HaLUjigAJtBQcw",
   "name": "backup-watchdog",
@@ -24,21 +24,130 @@
         0
       ],
       "id": "4757696b-caeb-40ff-b42a-d96f7daef044",
-      "name": "Schedule Trigger"
+      "name": "Trigger watchdog checks"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "with expected(target) as (\n  values ('backup:cajita/cajita-backend-db'),\n         ('backup:glosshall-a1/glosshall-postgres')\n),\noverdue as (\n  select e.target\n  from expected e\n  left join ops_checks o\n    on e.target = o.target\n    and o.kind = 'backup'\n    and o.status = 'ok'\n  group by e.target\n  having max(o.checked_at) is null\n      or max(o.checked_at) < now() - interval '26 hours'\n)\ninsert into ops_checks (kind, status, target, message)\nselect 'backup', 'fail', overdue.target, 'no successful backup in 26h'\nfrom overdue\nwhere not exists (\n  select 1 from ops_checks x\n  where x.target = overdue.target\n    and x.kind = 'backup'\n    and x.status = 'fail'\n    and x.acknowledged = false\n)\nreturning id, target, message;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        224,
+        0
+      ],
+      "id": "5f4602c6-faf9-49bb-b2a1-f276b199f0d9",
+      "name": "Insert overdue backups",
+      "credentials": {
+        "postgres": {
+          "id": "SeWX7Lx5aLYhZNiP",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "SLACK_WEBHOOK_URL_REDACTED",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: \"🚨 Backup OVERDUE — \" + $json.target + \"\\n\" + $json.message + \"\\nops_checks `#\" + String($json.id) + \"`\" }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        0
+      ],
+      "id": "52910a83-52fb-4ffb-bd25-bb2dda2bc379",
+      "name": "Send missing backup alert"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "53b93b3f-a2ca-487f-9928-bccea9306841",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        0
+      ],
+      "id": "9f7ee055-064a-4c62-9fd9-4bacf0f1a31c",
+      "name": "Only real inserts"
     }
   ],
-  "connections": {},
+  "connections": {
+    "Trigger watchdog checks": {
+      "main": [
+        [
+          {
+            "node": "Insert overdue backups",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert overdue backups": {
+      "main": [
+        [
+          {
+            "node": "Only real inserts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only real inserts": {
+      "main": [
+        [
+          {
+            "node": "Send missing backup alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
   "staticData": null,
-  "meta": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "efabfade-7157-4fc0-bc10-10ff35058f23",
+  "versionId": "363158e4-495e-4792-a314-7ddef7fe42de",
   "activeVersionId": null,
-  "versionCounter": 2,
+  "versionCounter": 179,
   "triggerCount": 0,
   "sourceWorkflowId": null,
   "tags": [],
