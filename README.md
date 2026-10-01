@@ -1,5 +1,7 @@
 # ops-console
 
+*Built with n8n · PostgreSQL · Retool · Slack · Docker*
+
 My production databases had no backups, and nothing would tell me if a site went
 down. ops-console is a self-hosted monitoring and operations console that records
 backup reports and health checks, alerts on failures, and gives a person a queue
@@ -13,6 +15,8 @@ to work through — so problems get noticed and handled instead of discovered to
   response time, and alerts only when a site *changes* state (down or recovered).
 - **Review queue** — a Retool app where an operator reviews open failures and
   acknowledges them, with per-user attribution and race-safe updates.
+
+See [docs/runbook.md](docs/runbook.md) for what to do when each alert fires.
 
 ## Architecture
 
@@ -35,6 +39,19 @@ never talk to each other directly — every workflow writes to the table, and Re
 reads and acknowledges from it. Adding a new producer (or consumer) means agreeing on
 the table's shape, nothing more.
 
+## Try it
+
+Send a backup report through the webhook (the contract lives in `examples/`):
+
+```bash
+curl -i -H 'Content-Type: application/json' -H "X-Ops-Token: $N8N_TOKEN" \
+  -X POST -d @examples/backup-fail.json \
+  'http://localhost:5678/webhook/backup-report'
+```
+
+A `status: "fail"` report records the failure and fires a Slack alert; the response
+returns the new row's id.
+
 ## Design decisions
 
 | Decision | Why |
@@ -45,7 +62,7 @@ the table's shape, nothing more.
 | Alert on *state change*, not every result | A site down for an hour would otherwise post every 5 minutes. Alert fatigue means real alerts get ignored. The insert returns the previous status so the workflow fires only on ok→fail and fail→ok. |
 | Watchdog uses a LEFT JOIN against a hardcoded expected-targets list | A backup that never ran has zero rows — a plain query over existing rows can't see it. The LEFT JOIN keeps the expected target with a NULL match, which is how "never backed up" is detected. The `ok`/`backup` filters go in `ON`, not `WHERE`, or the LEFT JOIN silently collapses to an INNER JOIN and drops the missing target. |
 | Anti-spam guard: insert an overdue row only `where not exists` an open one; alert only on `returning` rows | Records the problem once and alerts once, not every hour. Acknowledging without fixing lets it re-alert — "you marked it handled, but it isn't." |
-| Partial index `(checked_at desc) where status='fail' and acknowledged=false`; composite `(target, checked_at desc)` | The queue query and the per-target latest-row lookup stay fast regardless of table size. The composite index turns the watchdog's hourly per-target lookup into a single index scan. |
+| Partial index `(checked_at desc) where status='fail' and acknowledged=false`; composite `(target, checked_at desc)` | The queue query stays fast via the partial index (it only covers open failures). The composite index turns the health-check's per-target "most recent row" lookup — the prev-status CTE that runs every 5 minutes, once per target — into a single index scan instead of a sequential scan that grows with the table. |
 | Acknowledge guard: `update ... where id = ? and acknowledged = false returning id` | Two operators acknowledging the same row: the second update matches zero rows, so the UI tells them it was already handled instead of silently overwriting the first. |
 | Found and fixed a false "ok": Cloudflare Access was answering health checks with its login page | A check that can't fail is worse than no check, because you trust it. Replaced the Access-protected targets with a directly reachable one; the real fix (a service token) is noted under "what I'd add next." |
 
@@ -56,6 +73,10 @@ the table's shape, nothing more.
 
 ### Health overview
 ![Per-site uptime, average and p95 response time, and a response-time chart](docs/img/retool-health.png)
+
+*The flat stretch mid-chart is n8n being offline (laptop asleep). Nothing alerted
+during that window — which is exactly the "monitor the monitor" gap described under
+Status & what I'd add next.*
 
 ### Slack alerts
 ![Went-down, recovered, and backup-overdue alerts](docs/img/slack-alerts.png)
@@ -124,7 +145,6 @@ the table's shape, nothing more.
 6. **Connect Retool:** add a PostgreSQL resource pointing at the same database,
    connecting as `ops_reviewer` with SSL enabled. Build or import the review-queue
    and health-overview pages.
-
 
 ## Status & what I'd add next
 
