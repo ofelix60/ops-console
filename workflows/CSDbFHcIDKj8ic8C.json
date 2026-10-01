@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-29T21:35:54.902Z",
+  "updatedAt": "2026-10-01T23:33:33.953Z",
   "createdAt": "2026-09-28T17:28:47.728Z",
   "id": "CSDbFHcIDKj8ic8C",
   "name": "health-check",
@@ -28,7 +28,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const targets = [\n    \"https://api.glosshall.com/health\", \n    \"https://livekit.glosshall.com\",\n    \"https://does-not-exist.invalid\"\n    // \"https://example.com\"\n]\n\nconst results = []\n\n// ok/fail rule: a site is \"ok\" only if it answered with a 2xx status AND within 3s. \nconst getFailureReason = (httpCode, elapsedTime, fastEnough) => {\n  const code = Number(httpCode)\n  if (code < 200 || code >= 300) {\n    return `HTTP: ${code}`;\n  }\n  if (!fastEnough) {\n    return `slow: ${elapsedTime}ms`\n  }\n  return null\n}\n\nfor (const url of targets) {\n  const start = Date.now();\n  try {\n    const response = await this.helpers.httpRequest({\n        url, \n        method:'GET', \n        returnFullResponse: true,\n        timeout: 10000\n    });\n    const elapsedMs = Date.now() - start \n    const respondedFastEnough = elapsedMs <= 3000\n    const msg = getFailureReason(response.statusCode, elapsedMs, respondedFastEnough)\n\n    results.push({\n        json: {\n            target: url, \n            http_code: response.statusCode, \n            response_ms: elapsedMs,\n            message: msg,\n            status: msg ? 'fail' : 'ok'\n        }})\n  } catch (error) {    \n    results.push({\n        json: {\n            target: url, \n            http_code: null, \n            status: 'fail',\n            message: error.message,\n            response_ms: Date.now() - start,\n            error: error.code\n        }})\n  }\n}\n\nreturn results"
+        "jsCode": "const targets = [\n    \"https://api.glosshall.com/health\", \n    \"https://livekit.glosshall.com\"\n]\n\nconst results = []\n\n// ok/fail rule: a site is \"ok\" only if it answered with a 2xx status AND within 3s. \nconst getFailureReason = (httpCode, elapsedTime, fastEnough) => {\n  const code = Number(httpCode)\n  if (code < 200 || code >= 300) {\n    return `HTTP: ${code}`;\n  }\n  if (!fastEnough) {\n    return `slow: ${elapsedTime}ms`\n  }\n  return null\n}\n\nfor (const url of targets) {\n  const start = Date.now();\n  try {\n    const response = await this.helpers.httpRequest({\n        url, \n        method:'GET', \n        returnFullResponse: true,\n        timeout: 10000\n    });\n    const elapsedMs = Date.now() - start \n    const respondedFastEnough = elapsedMs <= 3000\n    const msg = getFailureReason(response.statusCode, elapsedMs, respondedFastEnough)\n\n    results.push({\n        json: {\n            target: url, \n            http_code: response.statusCode, \n            response_ms: elapsedMs,\n            message: msg,\n            status: msg ? 'fail' : 'ok'\n        }})\n  } catch (error) {    \n    results.push({\n        json: {\n            target: url, \n            http_code: null, \n            status: 'fail',\n            message: error.message,\n            response_ms: Date.now() - start,\n            error: error.code\n        }})\n  }\n}\n\nreturn results"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -238,9 +238,9 @@
   },
   "nodeGroups": [],
   "pinData": {},
-  "versionId": "4568b510-aa2e-49c1-9740-f1120532ce98",
-  "activeVersionId": "4568b510-aa2e-49c1-9740-f1120532ce98",
-  "versionCounter": 441,
+  "versionId": "837ef3c8-3cce-4fc8-a816-a2c70043a39e",
+  "activeVersionId": "837ef3c8-3cce-4fc8-a816-a2c70043a39e",
+  "versionCounter": 443,
   "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
@@ -265,7 +265,7 @@
     }
   ],
   "versionMetadata": {
-    "name": "Version 4568b510",
+    "name": "Version 837ef3c8",
     "description": ""
   }
 }
