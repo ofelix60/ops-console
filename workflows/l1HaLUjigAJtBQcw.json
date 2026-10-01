@@ -4,7 +4,7 @@
   "id": "l1HaLUjigAJtBQcw",
   "name": "backup-watchdog",
   "description": null,
-  "active": false,
+  "active": true,
   "isArchived": false,
   "nodes": [
     {
@@ -139,16 +139,25 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "staticData": null,
+  "staticData": {
+    "node:Trigger watchdog checks": {
+      "recurrenceRules": [
+        null
+      ],
+      "recurrenceRuleSignatures": [
+        null
+      ]
+    }
+  },
   "meta": {
     "templateCredsSetupCompleted": true
   },
   "nodeGroups": [],
   "pinData": {},
   "versionId": "363158e4-495e-4792-a314-7ddef7fe42de",
-  "activeVersionId": null,
+  "activeVersionId": "363158e4-495e-4792-a314-7ddef7fe42de",
   "versionCounter": 179,
-  "triggerCount": 0,
+  "triggerCount": 1,
   "sourceWorkflowId": null,
   "tags": [],
   "shared": [
@@ -172,7 +181,7 @@
     }
   ],
   "versionMetadata": {
-    "name": null,
-    "description": null
+    "name": "Version 363158e4",
+    "description": ""
   }
 }
