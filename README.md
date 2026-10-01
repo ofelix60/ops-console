@@ -78,13 +78,23 @@ the table's shape, nothing more.
 
 ## Running it locally
 
-**Prerequisites:** Docker, a Postgres database (this uses Neon), and `psql`.
+**Prerequisites:** Docker, a PostgreSQL database (this project uses Neon), and `psql`.
 
-1. **Database schema.**
+1. **Configuration.** Copy `.env.example` to `.env` and fill in the values
+   (database URL, webhook token). `.env` is gitignored — never commit real secrets.
+   Load it into your shell:
+```bash
+   cp .env.example .env
+   # edit .env, then:
+   set -a; source .env; set +a
+```
+
+2. **Database schema.**
    - Fresh install: `psql "$DATABASE_URL" -f schema.sql`
    - Existing database: run the files in `migrations/` in order.
-2. **Create the two roles** (passwords by hand — they live only in the n8n/Retool
-   credentials, never in the repo):
+
+3. **Create the two database roles** (set passwords by hand — they live only in the
+   n8n and Retool credentials, never in the repo):
 ```sql
    create role ops_writer   with login password '...';
    grant select, insert on ops_checks to ops_writer;
@@ -94,14 +104,27 @@ the table's shape, nothing more.
    grant select on ops_checks to ops_reviewer;
    grant update (acknowledged, ack_by, ack_at) on ops_checks to ops_reviewer;
 ```
-3. **n8n** (self-hosted via Docker): import the workflows with
-   `n8n import:workflow --input=workflows/` (the inverse of `export-workflows.sh`),
-   then set the Postgres credential (as `ops_writer`), the webhook token, and the
-   Slack webhook URL — none of which are stored in the repo.
-4. **Retool:** connect a PostgreSQL resource as `ops_reviewer` (SSL on), then build
-   or import the queue and health-overview pages.
-5. **Config:** copy `.env.example` to `.env` and fill in the values. `.env` is
-   gitignored — never commit real secrets.
+
+4. **Start n8n:**
+```bash
+   docker compose up -d n8n
+```
+
+5. **Import the workflows** (the inverse of `scripts/export-workflows.sh` — copy the
+   files into the container, then import the folder):
+```bash
+   docker compose cp workflows/. n8n:/tmp/wf/
+   docker compose exec n8n n8n import:workflow --separate --input=/tmp/wf/
+```
+   Then, in the n8n UI, set the credentials that aren't stored in the repo: the
+   Postgres credential (connect as `ops_writer`), the webhook token (`X-Ops-Token`
+   header auth), and the Slack webhook URL in each HTTP Request node. Publish each
+   workflow so its schedule/webhook is active.
+
+6. **Connect Retool:** add a PostgreSQL resource pointing at the same database,
+   connecting as `ops_reviewer` with SSL enabled. Build or import the review-queue
+   and health-overview pages.
+
 
 ## Status & what I'd add next
 
