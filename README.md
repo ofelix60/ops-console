@@ -82,8 +82,14 @@ Status & what I'd add next.*
 ![Went-down, recovered, and backup-overdue alerts](docs/img/slack-alerts.png)
 
 ### n8n workflows
+
+#### `backup-report` — webhook → insert → respond → alert on failure
 ![backup-report workflow](docs/img/n8n-backup-report.png)
+
+#### `health-check` — every 5 min: check sites → insert → alert on state change
 ![health-check workflow](docs/img/n8n-health-check.png)
+
+#### `backup-watchdog` — hourly: record overdue backups → alert on new ones
 ![backup-watchdog workflow](docs/img/n8n-backup-watchdog.png)
 
 ## Repo layout
