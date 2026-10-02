@@ -22,16 +22,27 @@ See [docs/runbook.md](docs/runbook.md) for what to do when each alert fires.
 
 ```mermaid
 flowchart LR
-  B[backup.sh] -->|POST + X-Ops-Token| BR[n8n: backup-report]
-  SCH[Schedule] --> HC[n8n: health-check]
-  SCH2[Schedule] --> WD[n8n: backup-watchdog]
-  BR -->|insert| DB[(Postgres: ops_checks)]
+  B[backup.sh] -->|POST + X-Ops-Token| BR[n8n<br/>backup-report]
+  SCH1[Schedule<br/>every 5 min] --> HC[n8n<br/>health-check]
+  SCH2[Schedule<br/>hourly] --> WD[n8n<br/>backup-watchdog]
+  BR -->|insert| DB[(Postgres<br/>ops_checks)]
   HC -->|insert| DB
-  WD -->|read + insert| DB
-  BR -->|on fail| S[Slack]
-  HC -->|on state change| S
-  WD -->|on overdue| S
-  DB --> RT[Retool: review queue]
+  WD <-->|read + insert| DB
+  BR -.->|on fail| S[Slack]
+  HC -.->|on state change| S
+  WD -.->|on overdue| S
+  DB --> RT[Retool<br/>review queue]
+
+  classDef src fill:#2D333B,stroke:#768390,color:#ADBAC7
+  classDef n8n fill:#EA4B71,stroke:#B8325A,color:#fff
+  classDef store fill:#336791,stroke:#23486A,color:#fff
+  classDef alert fill:#4A154B,stroke:#2E0D2F,color:#fff
+  classDef ui fill:#3D63DD,stroke:#2A47A8,color:#fff
+  class B,SCH1,SCH2 src
+  class BR,HC,WD n8n
+  class DB store
+  class S alert
+  class RT ui
 ```
 
 The `ops_checks` table is the contract that ties everything together. n8n and Retool
