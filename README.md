@@ -56,14 +56,14 @@ returns the new row's id.
 
 | Decision | Why |
 |---|---|
-| Least-privilege DB roles (`ops_writer` = insert/select only; `ops_reviewer` = select + column-scoped update on three columns) | A stolen credential can only do its job, not drop the table or hide an incident. A reviewer literally cannot change a failure's `status`. |
-| Parameterized queries everywhere (`$1`, Retool `{{ }}`) | Values are sent separately from SQL text, so user/report data can never be parsed as SQL. Verified with an injection payload stored verbatim. |
+| Least-privilege DB roles (`ops_writer` = insert/select only; `ops_reviewer` = select + column-scoped update on three columns) | A stolen credential can only do its job, not drop the table or hide an incident. A reviewer literally cannot change a failure's `status`. See [`002`](migrations/002_ops_writer.sql), [`004`](migrations/004_ops_reviewer.sql). |
+| Parameterized queries everywhere (`$1`, Retool `{{ }}`) | Values are sent separately from SQL text, so user/report data can never be parsed as SQL. Verified with an injection payload stored verbatim ([`examples/backup-inject.json`](examples/backup-inject.json)). |
 | Respond to the webhook before sending the Slack alert | The caller only asked "did you record my report?" A failure in a separate side-effect (Slack down) must not make the answer falsely say no, which would cause retries and duplicate rows. |
-| Alert on *state change*, not every result | A site down for an hour would otherwise post every 5 minutes. Alert fatigue means real alerts get ignored. The insert returns the previous status so the workflow fires only on ok→fail and fail→ok. |
-| Watchdog uses a LEFT JOIN against a hardcoded expected-targets list | A backup that never ran has zero rows — a plain query over existing rows can't see it. The LEFT JOIN keeps the expected target with a NULL match, which is how "never backed up" is detected. The `ok`/`backup` filters go in `ON`, not `WHERE`, or the LEFT JOIN silently collapses to an INNER JOIN and drops the missing target. |
+| Alert on *state change*, not every result | A site down for an hour would otherwise post every 5 minutes. Alert fatigue means real alerts get ignored. The insert returns the previous status so the workflow fires only on ok→fail and fail→ok. See [the insert](queries/n8n/health-check.insert-health-check-report.sql). |
+| Watchdog uses a LEFT JOIN against a hardcoded expected-targets list | A backup that never ran has zero rows — a plain query over existing rows can't see it. The LEFT JOIN keeps the expected target with a NULL match, which is how "never backed up" is detected. The `ok`/`backup` filters go in `ON`, not `WHERE`, or the LEFT JOIN silently collapses to an INNER JOIN and drops the missing target. See [the query](queries/n8n/backup-watchdog.insert-overdue-backups.sql). |
 | Anti-spam guard: insert an overdue row only `where not exists` an open one; alert only on `returning` rows | Records the problem once and alerts once, not every hour. Acknowledging without fixing lets it re-alert — "you marked it handled, but it isn't." |
-| Partial index `(checked_at desc) where status='fail' and acknowledged=false`; composite `(target, checked_at desc)` | The queue query stays fast via the partial index (it only covers open failures). The composite index turns the health-check's per-target "most recent row" lookup — the prev-status CTE that runs every 5 minutes, once per target — into a single index scan instead of a sequential scan that grows with the table. |
-| Acknowledge guard: `update ... where id = ? and acknowledged = false returning id` | Two operators acknowledging the same row: the second update matches zero rows, so the UI tells them it was already handled instead of silently overwriting the first. |
+| Partial index `(checked_at desc) where status='fail' and acknowledged=false`; composite `(target, checked_at desc)` | The queue query stays fast via the partial index (it only covers open failures). The composite index turns the health-check's per-target "most recent row" lookup — the prev-status CTE that runs every 5 minutes, once per target — into a single index scan instead of a sequential scan that grows with the table. See [`schema.sql`](schema.sql), [the queue query](queries/retool/open-failures.sql). |
+| Acknowledge guard: `update ... where id = ? and acknowledged = false returning id` | Two operators acknowledging the same row: the second update matches zero rows, so the UI tells them it was already handled instead of silently overwriting the first. See [`ack-check.sql`](queries/retool/ack-check.sql). |
 | Found and fixed a false "ok": Cloudflare Access was answering health checks with its login page | A check that can't fail is worse than no check, because you trust it. Replaced the Access-protected targets with a directly reachable one; the real fix (a service token) is noted under "what I'd add next." |
 
 ## Screenshots
@@ -99,7 +99,8 @@ Status & what I'd add next.*
 | `schema.sql` | The full current table definition — use this for a fresh install. |
 | `migrations/` | Ordered migrations that take the original table to its current shape (`001` columns + constraints, `002` writer role, `003` composite index, `004` reviewer role). |
 | `workflows/` | Exported n8n workflows (secrets redacted by the export script). |
-| `scripts/` | `export-workflows.sh` — exports and scrubs workflows before they're committed. |
+| `queries/` | Readable copies of every query and code node: `n8n/` is generated from the workflows, `retool/` is copied from the Retool app ([details](queries/README.md)). |
+| `scripts/` | `export-workflows.sh` exports and scrubs workflows before they're committed, then runs `extract-queries.sh` to regenerate `queries/n8n/`. |
 | `examples/` | Sample request bodies (the backup-report contract). |
 | `docs/` | Runbook, this README's images. |
 

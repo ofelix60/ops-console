@@ -39,3 +39,6 @@ rm -rf workflows/*.json
 cp "$tmp"/*.json workflows/
 echo "✻ Workflows exported and scrubbed"
 
+# Regenerate the readable SQL/JS copies from the scrubbed workflows
+"$(dirname "$0")/extract-queries.sh"
+
